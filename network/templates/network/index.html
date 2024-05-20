@@ -1,5 +1,18 @@
-{% extends "network/layout.html" %}
-
-{% block body %}
-    TODO
+{% extends "network/layout.html" %} {% load static %} {% block body %}
+<div id="view">
+  <div id="all_posts_view"></div>
+  <div id="followers_posts_view"></div>
+  <div id="new_post_view"></div>
+  {% comment %} <div id="edit_post_view"></div> {% endcomment %}
+  <div id="profile_view"></div>
+  <div id="err_view"><span class="denger" id="err_dat">--Loading--</span></div>
+  <div id="log_view">
+    <ol id="logs">
+      <li>loading</li>
+    </ol>
+  </div>
+</div>
+{% endblock %} {% block script %}
+<script src="{% static 'network/script.js' %}"></script>
+<script src="{% static 'network/views.js' %}"></script>
 {% endblock %}
