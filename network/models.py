@@ -11,6 +11,10 @@ from django.core.serializers import serialize
 
 
 class User(AbstractUser):
+    
+    
+    bio = models.TextField(blank=True, null=True)
+    location = models.CharField(max_length=100, blank=True, null=True)
 
     def sfollow(self,username:str,isfollow=True) -> bool:
         followuser = User.objects.filter(username=username)
@@ -69,8 +73,8 @@ class User(AbstractUser):
                 "is_authenticated": self.is_authenticated,
                 "is_staff": self.is_staff,
                 "is_superuser": self.is_superuser,
-                "date_joined": self.date_joined.strftime("%b %d %Y, %I:%M %p"),
-                "last_login": self.last_login.strftime("%b %d %Y, %I:%M %p"),                
+                "date_joined": self.date_joined and self.date_joined.strftime("%b %d %Y, %I:%M %p") or "Never", 
+                "last_login": self.last_login and self.last_login.strftime("%b %d %Y, %I:%M %p") or "Never",                
                 "noOfFollowers":self.followers.values("followed_by").distinct().count(),
                 "noOfFollowing":self.following.values("followed").distinct().count(),
             }

@@ -4,19 +4,19 @@ from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
-from django.shortcuts import render
-from django.urls import reverse
+from django.shortcuts import render, reverse
 from django.views.decorators.csrf import csrf_exempt
+
 
 from .models import User, Post
 
-
-def jsonMsg(message: str = "Not Found", status: int = 403) -> JsonResponse:
+def jsonMsg(message: str = "Not Found", status: int = 400) -> JsonResponse:
     return JsonResponse({"message": message}, status=status)
 
 
 @csrf_exempt
 def user(req,username):
+    """ Get user page and PUT following """
     user: User | None = User.objects.filter(username=username).first()
     if not user:
         return jsonMsg("Not a Valid User")
@@ -25,8 +25,10 @@ def user(req,username):
             pageNo = req.GET.get("page", 1)
             response =  user.serializeWithPost(CU=req.user,pageNo=pageNo)
             return JsonResponse(response,status=200)
+        except json.JSONDecodeError:
+            return jsonMsg("Invalid JSON")
         except:
-           return jsonMsg("something is wrong.")
+            return jsonMsg("Something went wrong")
     if req.method == "PUT":
         if not req.user or not req.user.is_authenticated:
             return jsonMsg("Req user not permitted")
@@ -55,24 +57,47 @@ def user(req,username):
 @csrf_exempt
 # @login_required
 def get_page_posts(req) -> JsonResponse:
-    pageNo:int|str = req.GET.get("page",None)
-    if not pageNo:
-        pageNo = 1
-    f = req.GET.get("followers",None)
-    print([f])
-    if f is not None:
+    """Gets All Posts
+
+    Args:
+        req (_type_): request data
+
+    Returns:
+        JsonResponse: all posts
+    """
+    if req.method == "GET":
+        pageNo:int|str = req.GET.get("page",None)
+        if not pageNo:
+            pageNo = 1
+        f = req.GET.get("followers",None)
         print([f])
-        responds = req.user.followingPosts(pageNo)
+        if f is not None:
+            print([f])
+            responds = req.user.followingPosts(pageNo)
+            return JsonResponse(responds, status=200)
+        responds = Post.get_page(req.user,Post.objects.all(),pageNo)
         return JsonResponse(responds, status=200)
-    responds = Post.get_page(req.user,Post.objects.all(),pageNo)
-    return JsonResponse(responds, status=200)
+    return jsonMsg("Only GET method is supported")
 
 
 
 
 @csrf_exempt
 @login_required
-def post(req, post_id):
+def post(req, post_id:str) -> JsonResponse:
+    """URL : "user/<str:post_id>"
+        methods:
+        GET For geting a post.
+        POST for editing an existed post
+        PUT for puting like, dislike, comments
+
+    Args:
+        req (GET:POST:PUT): _description_
+        post_id (_type_): _description_
+
+    Returns:
+        JsonResponse: jsonresponse | Msg
+    """
     post: Post|None = None
     try:
         post_id = int(post_id)
@@ -118,7 +143,7 @@ def post(req, post_id):
         # postID = req.GET.get("id", None)
         # if postID is None:
         #     return jsonMsg("Wrong post id.", 400)
-        return JsonResponse(post.serialize(numberOfComment=None),status=200)
+        return JsonResponse(post.serialize(numberOfComment=5),status=200)
     # ? FOR PUTTING LIKE or COMMENTS
     if req.method == "PUT":
         like = data.get("like", None)
@@ -139,11 +164,29 @@ def post(req, post_id):
     return JsonResponse({"hi": "hello", "method": req.method}, status=219)
 
 
-def index(request):
-    return render(request, "network/index.html")
+def index(request) -> HttpResponse:
+    """Loads index page
+
+    Args:
+        request (_type_): reqObject Only get method allowed
+
+    Returns:
+        HTTPResponds : render the page
+    """
+    if request.method == "GET":
+        return render(request, "network/index.html")
+    return jsonMsg("Only GET method allowd on this url")
 
 
-def login_view(request):
+def login_view(request) -> HttpResponse:
+    """Loads login view
+
+    Args:
+        request (RequestObject): Only GET AND POST METHOD ALLOWED
+
+    Returns:
+        HttpResponse: render login view | login the user
+    """
     if request.method == "POST":
 
         # Attempt to sign user in
@@ -161,19 +204,40 @@ def login_view(request):
                 "network/login.html",
                 {"message": "Invalid username and/or password."},
             )
-    else:
+    if request.method == "GET":
         return render(request, "network/login.html")
+    return jsonMsg("Bad Usage")
 
 
 def logout_view(request):
+    """logout the user
+
+    Args:
+        request (_type_): _description_
+
+    Returns:
+        HttpResponse: render index view
+    """
     logout(request)
     return HttpResponseRedirect(reverse("index"))
 
 
-def register(request):
+def register(request) -> HttpResponse:
+    """GET registation form OR POST data then save and login"""
+    
     if request.method == "POST":
         username = request.POST["username"]
         email = request.POST["email"]
+        password = request.POST["password"]
+        confirmation = request.POST["confirmation"]
+        first_name = request.POST.get("first_name", "")
+        last_name = request.POST.get("last_name", "")
+        bio = request.POST.get("bio", "")
+        location = request.POST.get("location", "")
+
+
+        # username = request.POST["username"]
+        # email = request.POST["email"]
 
         # Ensure password matches confirmation
         password = request.POST["password"]
@@ -184,14 +248,33 @@ def register(request):
             )
 
         # Attempt to create new user
+        # try:
+        #     user = User.objects.create_user(username, email, password)
+        #     user.save()
+        # except IntegrityError:
+        #     return render(
+        #         request, "network/register.html", {"message": "Username already taken."}
+        #     )
+        
+        # Create user
         try:
-            user = User.objects.create_user(username, email, password)
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+            )
+            user.bio = bio
+            user.location = location
             user.save()
         except IntegrityError:
-            return render(
-                request, "network/register.html", {"message": "Username already taken."}
-            )
+            return render(request, "network/register.html", {
+                "message": "Username already taken."
+            })
+        
         login(request, user)
         return HttpResponseRedirect(reverse("index"))
-    else:
+    if request.method != "POST":
         return render(request, "network/register.html")
+    return jsonMsg("wrong usage")

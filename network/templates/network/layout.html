@@ -16,6 +16,8 @@
             display : {% if  user.is_authenticated %}hi{% else %}none !important{% endif %};
         }
     </style>
+    {% comment %} icon for user menu {% endcomment %}
+    <link rel="icon" type="image/png" href="{% static 'network/images/icon.png' %}" />
     <script>
 
         var CU = {
@@ -31,7 +33,7 @@
   </head>
   <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
-      <a class="navbar-brand" href="#">Network</a>
+      <a class="navbar-brand" href="/">Network</a>
 
       <div>
         <ul class="navbar-nav mr-auto">

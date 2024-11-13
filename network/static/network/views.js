@@ -2,9 +2,9 @@
 // todos // 
 /* 
 todo remove extra white spaces in html
+todo remove all console.log
 
-
-
+. todo Make a css animation like scale 50 for some elements one after another 
 */
 
 // document.addEventListener("click", e => {
@@ -75,11 +75,11 @@ function loadView(element) {
 function loadeditPost(elem) {
 	let cap = [...elem.children].filter(e => e.classList.contains("caption"))[0]
 	let pid = elem.dataset["pid"]
-	editPost((cap ? cap.innerText : ""), pid ?? -1)
+	return editPost((cap ? cap.innerText : ""), pid ?? -1)
 }
 
 function editPost(caption, id) {
-	loadViewPage("edit", "", { caption: caption, id: id })
+	return loadViewPage("edit", "", { caption: caption, id: id })
 }
 
 function replacequery(key, value) {
@@ -180,40 +180,54 @@ function followUser(username, elem, event) {
 		})
 }
 function loadFollowingPage(pageDat,url){
-	let postsDat = pageDat[1];
-	let elems = getPostTags(postsDat, url);
-	all_posts_view.innerHTML = "";
-	// url = "posts"
-	// log(elems,pageDat,url)
-	(
-		[
-			...mapElemsPosts(elems)
-		]
-			.map(e => all_posts_view.appendChild(e))
-	)
-	loadView("all_posts")
-	replacequery("page", postsDat.pageNo)
-	return
+	if (loginRequired(function () {
+		let postsDat = pageDat[1];
+		let elems = getPostTags(postsDat, url);
+		all_posts_view.innerHTML = "";
+		// url = "posts"
+		// log(elems,pageDat,url)
+		(
+			[
+				...mapElemsPosts(elems)
+			]
+				.map(e => all_posts_view.appendChild(e))
+		)
+		loadView("all_posts")
+		replacequery("page", postsDat.pageNo)
+		return true;
+	})) return true;
+	else {
+		loadViewPage("posts")
+		return false;
+	}
 }
 
-async function loadViewPage(url, pageNo = 1, kwargs = {}) {
+async function loadViewPage(url = "posts", pageNo = 1, kwargs = {}) {
+	// setting title 
+	window.document.title = "Network | " + url.charAt(0).toUpperCase() + url.slice(1)
 	kwargs ??= {};
 	replacequery("url", url)
 	if (url.includes("edit") || (url.includes("new") && url.includes("post"))) {
-		return loadNewPostView(kwargs)
+		return loadNewPostView(kwargs);
 	}
 	if (url == "followingPosts") {
+		// if (!loginRequired(function () {
 		kwargs["tmpcloneFollowerPage"] = [url, pageNo];
-		[url,pageNo] = [ "posts",kwargs["tmpcloneFollowerPage"][1]+"&followers"]
+		[url, pageNo] = ["posts", kwargs["tmpcloneFollowerPage"][1] + "&followers"]
+		// 	return true;
+		// })) return false;
 	}
 	let pageDat = await getPage(pageNo, url)
 	if (!pageDat[0]) {
 		loadView("err");
 		return err_dat.innerText = pageDat[1]
 	}
-	if (kwargs["tmpcloneFollowerPage"] && pageNo == kwargs["tmpcloneFollowerPage"][1]+"&followers") {
+	if (kwargs["tmpcloneFollowerPage"] && pageNo == kwargs["tmpcloneFollowerPage"][1] + "&followers") {
+		// if (!loginRequired(function () {
 		[url, pageNo] = kwargs["tmpcloneFollowerPage"];
-		return loadFollowingPage(pageDat, url);
+		loadFollowingPage(pageDat, url);
+		// 	return true;
+		// })) return false;
 	}
 	console.log(pageDat);
 	// replacequery("url", url)
@@ -237,6 +251,10 @@ function loadNewPostView({ caption = "", id = null }) {
 
 	// let postsDat = pageDat[1];
 	// let elems = getPostTags(postsDat, url);
+	if (!loginRequired(function () { })) {
+		loadViewPage("posts")
+		return false
+	}
 	let form = myDOMparse('<form><input class="hide" type="text" name="pid" value="' + (id ?? -1) + '" hidden><textarea name="caption" cols="30" rows="10">' + caption + '</textarea> <input type="submit" value="' + (id ? "Confirm Edits" : "Add New Post") + '"></form>')[0]
 	form.addEventListener("submit", e => {
 		e.preventDefault()
@@ -404,14 +422,21 @@ function getPostTags(postsDat, pageurl) {
 		postElem.dataset["pid"] = post.id;
 		postElem.addEventListener("click", log)
 		// postElem.onclick(view_post(this.dataset.pid);)
-		postElem.innerHTML = `<h3 class="user">${getUserTag(post.user)}</h3>
-		<div class="time">${post.timestamp}</div>
-		<span class="caption">${post.caption}</span>
-		${post.postedByCU ? `<button class="solid editbtn" onclick="event.stopPropagation();loadeditPost(this.parentElement,${post.pid})">📝Edit</button>` : ''}
-		<span class="likes${post.likesCU ? ' liked' : ''}" onclick="event.cancelBubble = true;likePost(this.parentElement.dataset.pid,this);">${post.likes}</span>`
-		postElem.append(...getCommentElem(post.comments, post.id))
+		// let fontsize = post.caption.length < 150 ? "big" : post.caption.length < 300 ? "mid" : "small";
+		// let fontsize = ((1 + (1-(post.caption.length < 400 ? post.caption.length : 400) /400))  * 16).toFixed(3)
+		let fontsize = ((1 + 1-((Math.sqrt(post.caption.length - 50 < 400 ? post.caption.length : 400) - 0.05)/20))  * 16).toFixed(3)
+		console.log(fontsize)
 
 
+		postElem.append(
+			...myDOMparse(`<h3 class="user">${getUserTag(post.user)}</h3>
+				<div class="time">${post.timestamp}</div>
+				<span class="caption" style="${`font-size:${fontsize}px;` ?? "font-size:2em;"}"></span>
+				${post.postedByCU ? `<button class="solid editbtn" onclick="event.stopPropagation();loadeditPost(this.parentElement,${post.pid})">📝Edit</button>` : ''}
+				<span class="likes${post.likesCU ? ' liked' : ''}" onclick="event.cancelBubble = true;likePost(this.parentElement.dataset.pid,this);">${post.likes}</span>`),
+			...getCommentElem(post.comments, post.id)
+		);
+		[...postElem.children].filter(elem => elem.classList && elem.classList.contains("caption"))[0].innerText = post.caption
 		return postElem;
 	}
 	if (!(postsDat && pageurl))
@@ -433,7 +458,8 @@ function getPostTags(postsDat, pageurl) {
 		};
 }
 
-function loginRequired(func) {
+function loginRequired(func = console.log, ...args) {
+	args ??= {}
 	if (!CU[0]) {
 		alert("Login required for this action.");
 		console.warn(
@@ -441,9 +467,10 @@ function loginRequired(func) {
 		);
 		if (confirm("redirect to login page."))
 			window.location.replace("/login");
-		return null;
+		return false;
 	}
-	return func()
+	func(...args)
+	return true;
 }
 
 
